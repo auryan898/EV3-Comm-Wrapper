@@ -1,9 +1,10 @@
-package ca.mcgill.ecse211.project;
+package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.lcd.TextLCD;
 
@@ -14,7 +15,12 @@ public class EV3TestComm {
     BasicComm comm = new BasicComm(CommReceiver.class,new String[] {
         "Print","Light","Sound"
     });
+    
+    lcd.drawString("Wait connection", 0, 1);
     comm.waitForConnection();
+    lcd.drawString("Waiting for End",0,1);
+    Button.waitForAnyPress();
+    comm.shutdown();
   }
 }
 
@@ -39,6 +45,7 @@ class CommReceiver extends BasicCommReceiver {
 
   @Override
   protected void receive(String event) {
+    EV3TestComm.lcd.drawString("Start Receiving",0,7);
     switch (event) {
       case "Print":
         byte[] arr = new byte[18];
@@ -46,8 +53,10 @@ class CommReceiver extends BasicCommReceiver {
           this.dis.read(arr);
           EV3TestComm.lcd.clear();
           EV3TestComm.lcd.drawString(new String(arr, "UTF-8"),0,0);
+          
         } catch (IOException e) {
           e.printStackTrace();
+          EV3TestComm.lcd.drawString("Error Read",0,0);
         }
         break;
       case "Light":

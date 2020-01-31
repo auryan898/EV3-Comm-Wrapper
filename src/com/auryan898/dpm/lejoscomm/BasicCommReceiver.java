@@ -1,9 +1,10 @@
-package ca.mcgill.ecse211.project;
+package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 
-public abstract class BasicCommReceiver implements Runnable {
+public abstract class BasicCommReceiver {
 
   private static final long T_INTERVAL = 10;
   private boolean running;
@@ -21,35 +22,10 @@ public abstract class BasicCommReceiver implements Runnable {
   }
   
   /**
-   * Doesn't need to be overridden, defines the logic 
-   * for checking received information.
-   */
-  public void run() {
-    while (running) {
-      // update received messages
-      try {
-        String event = commEvents.getKey(dis.readByte());
-        synchronized (this) {
-          receive(event);
-        }
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-
-      try {
-        Thread.sleep(T_INTERVAL);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-        break;
-      }
-    }
-  }
-  
-  /**
    * Can be used to properly stop the loop that checks for incoming data.
    */
   public void shutdown() {
-    running = false;
+    commSender.shutdown();
   }
   
   /**
@@ -59,6 +35,6 @@ public abstract class BasicCommReceiver implements Runnable {
    * 
    * @param event a String determining what type of message is sent through the connection
    */
-  protected abstract void receive(String event);
+  abstract protected void receive(String event);
   
 }

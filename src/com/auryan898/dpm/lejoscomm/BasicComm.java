@@ -1,7 +1,8 @@
-package ca.mcgill.ecse211.project;
+package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Enumeration;
@@ -19,7 +20,7 @@ public class BasicComm {
   private DataInputStream dis;
   private DataOutputStream dos;
   private Thread receiver;
-  private BasicCommReceiver commReceiver;
+  private BasicCommReceiver commReceiver = null;
   private Class<?> classReceiver;
   private CommEvent commEvents;
 
@@ -29,12 +30,37 @@ public class BasicComm {
   }
 
   /**
+   * Gets the local object that describes communication events.
+   * @return commEvents object
+   */
+  public CommEvent getEvents() {
+    return commEvents;
+  }
+  
+  /**
    * For instantly connecting to the EV3.
    * 
-   * @param ipAddress the ip address of the EV3 to connect to
+   * @param keys the Strings that determine which events occur
    */
-  public BasicComm(String ipAddress) {
-    this.connect(ipAddress);
+  public BasicComm(String[] keys) {
+    this.classReceiver = BasicCommReceiver.class;
+    this.commEvents = new CommEvent(keys);
+  }
+  
+  public BasicCommReceiver getReceiver() {
+    if (isConnected()) {
+      return commReceiver;
+    } else {
+      return null;
+    }
+  }
+  
+  /**
+   * Tells if the program has connected to a device yet.
+   * @return if connected to something
+   */
+  public boolean isConnected() {
+    return this.connected;
   }
 
   /**
@@ -53,8 +79,9 @@ public class BasicComm {
     }
     try {
       synchronized (receiver) {
-        dos.writeByte((byte)commEvents.valueOf(event));
+        dos.writeByte(commEvents.valueOf(event));
         data.dumpObject(dos);
+        dos.flush();
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -105,16 +132,45 @@ public class BasicComm {
     try {
       commReceiver = (BasicCommReceiver)classReceiver
           .getConstructor(BasicComm.class, boolean.class, 
-              DataInputStream.class, DataOutputStream.class)
-          .newInstance(this,running, dis, dos);
-      
+              DataInputStream.class, DataOutputStream.class, CommEvent.class)
+          .newInstance(this,running, dis, dos, commEvents);      
     } catch (Exception e) {
       e.printStackTrace();
       return;
     }
     connected = true;
-    receiver = new Thread(commReceiver);
+    running = true;
+    receiver = new Thread(new Receiver());
     receiver.setDaemon(true);
     receiver.start();
+  }
+  
+  class Receiver implements Runnable {
+    
+    /**
+     * Doesn't need to be overridden, defines the logic 
+     * for checking received information.
+     */
+    public void run() {
+      while (running) {
+        // update received messages
+        try {
+          String event = commEvents.getKey(dis.readByte());
+          synchronized (this) {
+            commReceiver.receive(event);
+          }
+        } catch (EOFException e) {
+          running = false;
+          connected = false;
+        } catch (Exception e) {
+          e.printStackTrace();
+          System.out.println(e);
+        }
+      }
+    }
+  }
+
+  public void shutdown() {
+    this.running= false;
   }
 }

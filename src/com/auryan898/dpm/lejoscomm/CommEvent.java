@@ -1,4 +1,4 @@
-package ca.mcgill.ecse211.project;
+package com.auryan898.dpm.lejoscomm;
 
 import java.util.HashMap;
 

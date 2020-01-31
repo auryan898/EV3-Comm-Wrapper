@@ -1,4 +1,4 @@
-package ca.mcgill.ecse211.project;
+package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -9,25 +9,40 @@ import lejos.robotics.Transmittable;
 
 public class PCTestComm {
   public static void main(String[] args) {
-    BasicComm comm = new BasicComm(CommReceiver.class,new String[] {
-        "Print","Light","Sound"
-    });
+    BasicComm comm = new BasicComm(CommReceiver.class, new String[] { "Print", "Light", "Sound" });
+
     comm.connect("10.0.1.1");
     
     Scanner scan = new Scanner(System.in);
-    System.out.println("Do you wish to say something? ");
-    final String line = scan.nextLine();
-    comm.send("Print", new Transmittable() {
-      
-      @Override
-      public void dumpObject(DataOutputStream dos) throws IOException {
-        dos.writeChars(new String(line));
-      }
-      @Override
-      public void loadObject(DataInputStream dis) throws IOException {
-      }
-      
-    });
+    String line = "";
+    while (comm.isConnected()) {
+      System.out.println("Do you wish to say something? ");
+      line = scan.nextLine();
+      comm.send("Print", new StringData(line));
+    }
+    comm.shutdown();
+  }
+}
+
+/**
+ * Transmittable String
+ */
+class StringData implements Transmittable {
+  private String val;
+
+  public StringData(String val) {
+    this.val = val;
+  }
+
+  @Override
+  public void dumpObject(DataOutputStream dos) throws IOException {
+    dos.writeChars(val);
+  }
+
+  @Override
+  public void loadObject(DataInputStream dis) throws IOException {
+    // TODO Auto-generated method stub
+
   }
 }
 
@@ -71,5 +86,4 @@ class PcCommReceiver extends BasicCommReceiver {
       default:
     }
   }
-
 }
