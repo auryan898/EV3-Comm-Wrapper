@@ -5,7 +5,7 @@ A set of wrapper classes to handle remote communications between ev3, nxt, and p
 I designed this project as a helper tool to control the EV3 brick while prototyping builds.  It is meant to be 
 highly versatile and user-friendly.  The information that is communicated consists of only bytes, so that is a bit
 of a hurdle to get past, but the wrapper classes should make the implementation much quicker, and allow for more 
-focus on functionality, rather than the logistics of organizing of how this or that thread should be organized
+focus on functionality, rather than the logistics of how this or that thread should be organized
 in the code.  
 
 Documentation - (TBD)  
