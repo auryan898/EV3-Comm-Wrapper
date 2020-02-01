@@ -3,9 +3,7 @@ package com.auryan898.dpm.lejoscomm;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
-import java.util.Enumeration;
+import java.io.IOException;
 
 import lejos.remote.nxt.NXTCommConnector;
 import lejos.remote.nxt.NXTConnection;
@@ -14,39 +12,55 @@ import lejos.robotics.Transmittable;
 
 public class BasicComm {
 
-  private boolean running = true;
-  public static final long T_INTERVAL = 10;
+  private static final int CONNECTION_ATTEMPTS = 5;
   private boolean connected = false;
+  private boolean disableReceive = false; 
   private DataInputStream dis;
   private DataOutputStream dos;
   private Thread receiver;
   private BasicCommReceiver commReceiver = null;
-  private Class<?> classReceiver;
   private CommEvent commEvents;
 
-  public BasicComm(Class<?> classReceiver, String[] keys) {
-    this.classReceiver = classReceiver;
+  /**
+   * Gives an instance of BasicComm that can send and receive information. 
+   * Extend BasicCommReceiver and define receive() which is called by 
+   * BasicComm every time it receives information from the other device. 
+   * 
+   * @param commReceiver a new instance of any subclass of BasicCommReceiver
+   * @param keys user-chosen strings that identify each type of message sent/received
+   */
+  public BasicComm(BasicCommReceiver commReceiver, String[] keys) {
+    this.commReceiver = commReceiver;
     this.commEvents = new CommEvent(keys);
   }
 
   /**
+   * Gives an instance of BasicComm that can only connect and send 
+   * information to the other device.
+   * 
+   * @param keys user-chosen strings that identify each type of message sent/received
+   */
+  public BasicComm(String[] keys) {
+    this.commReceiver = new SimpleCommReceiver();
+    this.commEvents = new CommEvent(keys);
+    this.disableReceive = true;
+  }
+
+  /**
    * Gets the local object that describes communication events.
+   * 
    * @return commEvents object
    */
   public CommEvent getEvents() {
     return commEvents;
   }
-  
+
   /**
-   * For instantly connecting to the EV3.
+   * Gets back the internal instance of the BasicCommReceiver,
+   * to be able to read back values if convenient. 
    * 
-   * @param keys the Strings that determine which events occur
+   * @return the original BasicCommReceiver, but connected and initialized
    */
-  public BasicComm(String[] keys) {
-    this.classReceiver = BasicCommReceiver.class;
-    this.commEvents = new CommEvent(keys);
-  }
-  
   public BasicCommReceiver getReceiver() {
     if (isConnected()) {
       return commReceiver;
@@ -54,9 +68,10 @@ public class BasicComm {
       return null;
     }
   }
-  
+
   /**
    * Tells if the program has connected to a device yet.
+   * 
    * @return if connected to something
    */
   public boolean isConnected() {
@@ -81,7 +96,9 @@ public class BasicComm {
       synchronized (receiver) {
         dos.writeByte(commEvents.valueOf(event));
         data.dumpObject(dos);
-        dos.flush();
+        if (dos.size() > 0) {
+          dos.flush();
+        }
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -107,14 +124,22 @@ public class BasicComm {
    * 
    * @param ipAddress the ip address of the brick
    */
-  public void connect(String ipAddress) {
+  public boolean connect(String ipAddress) {
     if (connected) {
-      return;
+      return false;
     }
-    NXTCommConnector connector = new SocketConnector();
-    NXTConnection conn = connector.connect(ipAddress, NXTConnection.PACKET);
-    establishConn(conn);
-
+    for (int i = 0; i < CONNECTION_ATTEMPTS; i++) {
+      try {
+        NXTCommConnector connector = new SocketConnector();
+        NXTConnection conn = connector.connect(ipAddress, NXTConnection.PACKET);
+        establishConn(conn);
+        return connected;
+      } catch (Exception e) {
+        e.printStackTrace();
+        
+      }
+    }
+    return false;
   }
 
   /**
@@ -130,47 +155,49 @@ public class BasicComm {
     dos = new DataOutputStream(conn.openOutputStream());
     // Establish Receiver Daemon
     try {
-      commReceiver = (BasicCommReceiver)classReceiver
-          .getConstructor(BasicComm.class, boolean.class, 
-              DataInputStream.class, DataOutputStream.class, CommEvent.class)
-          .newInstance(this,running, dis, dos, commEvents);      
+      commReceiver.setProps(this, dis, dos, commEvents);
     } catch (Exception e) {
       e.printStackTrace();
       return;
     }
     connected = true;
-    running = true;
     receiver = new Thread(new Receiver());
     receiver.setDaemon(true);
     receiver.start();
   }
-  
+
   class Receiver implements Runnable {
-    
+
     /**
-     * Doesn't need to be overridden, defines the logic 
-     * for checking received information.
+     * Doesn't need to be overridden, defines the logic for checking received
+     * information.
      */
     public void run() {
-      while (running) {
+      while (connected) {
         // update received messages
         try {
-          String event = commEvents.getKey(dis.readByte());
+          byte code = dis.readByte();
+          String event = commEvents.getKey(code);
           synchronized (this) {
-            commReceiver.receive(event);
+            commReceiver.receive(event, dis, dos);
           }
-        } catch (EOFException e) {
-          running = false;
-          connected = false;
-        } catch (Exception e) {
-          e.printStackTrace();
-          System.out.println(e);
-        }
+        } catch (IOException e) {
+          shutdown();
+        } 
       }
     }
   }
 
   public void shutdown() {
-    this.running= false;
+    this.connected = false;
   }
+}
+
+class SimpleCommReceiver extends BasicCommReceiver {
+
+  @Override
+  protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
+    
+  }
+
 }

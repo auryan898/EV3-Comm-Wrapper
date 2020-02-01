@@ -3,7 +3,6 @@ package com.auryan898.dpm.lejoscomm;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-
 import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.lcd.TextLCD;
@@ -12,7 +11,7 @@ public class EV3TestComm {
   public static TextLCD lcd = LocalEV3.get().getTextLCD();
   
   public static void main(String[] args) {
-    BasicComm comm = new BasicComm(CommReceiver.class,new String[] {
+    BasicComm comm = new BasicComm(new CommReceiver(),new String[] {
         "Print","Light","Sound"
     });
     
@@ -31,26 +30,14 @@ public class EV3TestComm {
  */
 class CommReceiver extends BasicCommReceiver {
 
-  /**
-   * Using only the super constructor.
-   * @param running - will be set to true when used by BasicComm
-   * @param dis - supplied by BasicComm during connection
-   * @param dos - supplied by BasicComm during connection
-   * @param commEvents - supplied by BasicComm during connection
-   */
-  public CommReceiver(BasicComm commSender, boolean running, DataInputStream dis, 
-      DataOutputStream dos, CommEvent commEvents) {
-    super(commSender, running, dis, dos, commEvents);
-  }
-
   @Override
-  protected void receive(String event) {
+  protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
     EV3TestComm.lcd.drawString("Start Receiving",0,7);
     switch (event) {
       case "Print":
         byte[] arr = new byte[18];
         try {
-          this.dis.read(arr);
+          dis.read(arr);
           EV3TestComm.lcd.clear();
           EV3TestComm.lcd.drawString(new String(arr, "UTF-8"),0,0);
           

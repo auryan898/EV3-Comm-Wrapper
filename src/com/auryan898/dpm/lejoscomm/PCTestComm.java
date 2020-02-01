@@ -4,12 +4,11 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Scanner;
-
 import lejos.robotics.Transmittable;
 
 public class PCTestComm {
   public static void main(String[] args) {
-    BasicComm comm = new BasicComm(CommReceiver.class, new String[] { "Print", "Light", "Sound" });
+    BasicComm comm = new BasicComm(new CommReceiver(), new String[] { "Print", "Light", "Sound" });
 
     comm.connect("10.0.1.1");
     
@@ -53,27 +52,13 @@ class StringData implements Transmittable {
  *
  */
 class PcCommReceiver extends BasicCommReceiver {
-
-  /**
-   * Using only the super constructor.
-   * 
-   * @param running    - will be set to true when used by BasicComm
-   * @param dis        - supplied by BasicComm during connection
-   * @param dos        - supplied by BasicComm during connection
-   * @param commEvents - supplied by BasicComm during connection
-   */
-  public PcCommReceiver(BasicComm commSender, boolean running, DataInputStream dis, DataOutputStream dos,
-      CommEvent commEvents) {
-    super(commSender, running, dis, dos, commEvents);
-  }
-
   @Override
-  protected void receive(String event) {
+  protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
     switch (event) {
       case "Print":
         byte[] arr = new byte[18];
         try {
-          this.dis.read(arr);
+          dis.read(arr);
           System.out.println(new String(arr, "UTF-8"));
         } catch (IOException e) {
           e.printStackTrace();

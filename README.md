@@ -25,3 +25,5 @@ for debugging.  After I've gone through most of the coding, I realized that it's
 AND my lab code, so it's not exactly the best tool to help in fast prototyping.  Nevertheless, having the interface and
 wrapper classes all set and ready means I can use it for future use, if the time ever comes to connect some ev3s to ev3s, 
 or pc to ev3s.
+
+![](LejosComm.png)
