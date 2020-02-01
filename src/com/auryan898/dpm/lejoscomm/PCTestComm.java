@@ -24,44 +24,28 @@ public class PCTestComm {
 }
 
 /**
- * Transmittable String
- */
-class StringData implements Transmittable {
-  private String val;
-
-  public StringData(String val) {
-    this.val = val;
-  }
-
-  @Override
-  public void dumpObject(DataOutputStream dos) throws IOException {
-    dos.writeChars(val);
-  }
-
-  @Override
-  public void loadObject(DataInputStream dis) throws IOException {
-    // TODO Auto-generated method stub
-
-  }
-}
-
-/**
  * This can be in its own file, but this is just a demo to show it works.
  * 
  * @author Ryan Au
  *
  */
 class PcCommReceiver extends BasicCommReceiver {
+  StringData dat;
+  
+  public PcCommReceiver() {
+    dat = new StringData();
+  }
+  
   @Override
   protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
     switch (event) {
       case "Print":
-        byte[] arr = new byte[18];
         try {
-          dis.read(arr);
-          System.out.println(new String(arr, "UTF-8"));
+          dat.loadObject(dis);
+          System.out.println(dat.getString());
         } catch (IOException e) {
           e.printStackTrace();
+          System.out.println("Error: failed Print event read");
         }
         break;
       case "Light":

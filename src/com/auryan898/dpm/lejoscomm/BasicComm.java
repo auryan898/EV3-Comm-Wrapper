@@ -85,8 +85,8 @@ public class BasicComm {
    * @param event predefined event that is shared knowledge between both PcComm
    *              and EV3Comm
    * @param data  an object which can be turned into basic data types, sent
-   *              through dos and turned back into an object.
-   * @return
+   *              through dos and turned back into an object. Can be null to send nothing.
+   * @return true for successful data sending
    */
   public boolean send(String event, Transmittable data) {
     if (!connected) {
