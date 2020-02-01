@@ -95,12 +95,14 @@ public class BasicComm {
     try {
       synchronized (receiver) {
         dos.writeByte(commEvents.valueOf(event));
-        data.dumpObject(dos);
+        if (data != null) {
+          data.dumpObject(dos);
+        }
         if (dos.size() > 0) {
           dos.flush();
         }
       }
-    } catch (Exception e) {
+    } catch (IOException e) {
       e.printStackTrace();
       return false;
     }
