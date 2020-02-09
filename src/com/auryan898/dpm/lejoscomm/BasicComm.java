@@ -137,7 +137,6 @@ public class BasicComm {
         establishConn(conn);
         return connected;
       } catch (Exception e) {
-        e.printStackTrace();
         
       }
     }
@@ -157,7 +156,7 @@ public class BasicComm {
     dos = new DataOutputStream(conn.openOutputStream());
     // Establish Receiver Daemon
     try {
-      commReceiver.setProps(this, dis, dos, commEvents);
+      commReceiver.setProps(this, dis, commEvents);
     } catch (Exception e) {
       e.printStackTrace();
       return;
@@ -199,7 +198,6 @@ class SimpleCommReceiver extends BasicCommReceiver {
 
   @Override
   protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
-    
   }
 
 }

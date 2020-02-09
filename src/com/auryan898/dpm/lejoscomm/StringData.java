@@ -8,7 +8,7 @@ import lejos.robotics.Transmittable;
 /**
  * Transmittable String for usage with BasicComm and BasicCommReceiver send() and read().
  */
-class StringData implements Transmittable {
+public class StringData implements Transmittable {
   private String val;
 
   /**

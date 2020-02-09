@@ -1,17 +1,23 @@
-package com.auryan898.dpm.lejoscomm;
+package com.auryan898.dpm.lejoscomm.test;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+
+import com.auryan898.dpm.lejoscomm.BasicComm;
+import com.auryan898.dpm.lejoscomm.BasicCommReceiver;
+import com.auryan898.dpm.lejoscomm.StringData;
+
 import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.lcd.TextLCD;
 
-public class EV3TestComm {
+public class EV3TestComm extends BasicCommReceiver {
   public static TextLCD lcd = LocalEV3.get().getTextLCD();
+  private StringData dat;
 
   public static void main(String[] args) {
-    BasicComm comm = new BasicComm(new CommReceiver(), new String[] { "Print", "Light", "Sound" });
+    BasicComm comm = new BasicComm(new EV3TestComm(), new String[] { "Print", "Light", "Sound" });
 
     lcd.drawString("Wait connection", 0, 1);
     comm.waitForConnection();
@@ -19,17 +25,8 @@ public class EV3TestComm {
     Button.waitForAnyPress();
     comm.shutdown();
   }
-}
 
-/**
- * This can be in its own file, but this is just a demo to show it works.
- * 
- * @author Ryan Au
- *
- */
-class CommReceiver extends BasicCommReceiver {
-  StringData dat;
-  public CommReceiver() {
+  public EV3TestComm() {
     dat = new StringData();
   }
 
@@ -40,12 +37,22 @@ class CommReceiver extends BasicCommReceiver {
       case "Print":
         try {
           dat.loadObject(dis);
-          EV3TestComm.lcd.clear();
-          EV3TestComm.lcd.drawString(dat.getString(), 0, 0);
-
+          lcd.clear();
+          String temp = dat.getString();
+          int len = temp.length();
+          for (int i = 0; i < (len / 18) + 1; i++) {
+            EV3TestComm.lcd.drawString(temp, 0, i);
+            if (temp.length() >= 18) {
+              temp = temp.substring(18);
+            } else {
+              break;
+            }
+          }
+          dat.setString("Thanks.");
+          send("Print",dat);
         } catch (IOException e) {
           e.printStackTrace();
-          EV3TestComm.lcd.drawString("Error Read", 0, 0);
+          lcd.drawString("Error Read", 0, 0);
         }
         break;
       case "Light":
@@ -55,5 +62,4 @@ class CommReceiver extends BasicCommReceiver {
       default:
     }
   }
-
 }

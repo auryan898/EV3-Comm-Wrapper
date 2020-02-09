@@ -2,21 +2,17 @@ package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
-
 import lejos.robotics.Transmittable;
 
 public abstract class BasicCommReceiver {
 
   private CommEvent commEvents;
   private DataInputStream dis;
-  private DataOutputStream dos;
   private BasicComm commSender;
 
-  public void setProps(BasicComm commSender, DataInputStream dis, DataOutputStream dos, CommEvent commEvents) {
+  public void setProps(BasicComm commSender, DataInputStream dis, CommEvent commEvents) {
     this.dis = dis;
-    this.dos = dos;
     this.commEvents = commEvents;
     this.commSender = commSender;
   }
