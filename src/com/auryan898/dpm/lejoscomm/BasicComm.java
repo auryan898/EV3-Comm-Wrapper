@@ -4,9 +4,12 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 
 import lejos.remote.nxt.NXTCommConnector;
 import lejos.remote.nxt.NXTConnection;
+import lejos.remote.nxt.SocketConnection;
 import lejos.remote.nxt.SocketConnector;
 import lejos.robotics.Transmittable;
 
@@ -14,7 +17,7 @@ public class BasicComm {
 
   private static final int CONNECTION_ATTEMPTS = 5;
   private boolean connected = false;
-  private boolean disableReceive = false; 
+  private CommChannel channel = CommChannel.A;
   private DataInputStream dis;
   private DataOutputStream dos;
   private Thread receiver;
@@ -22,12 +25,13 @@ public class BasicComm {
   private CommEvent commEvents;
 
   /**
-   * Gives an instance of BasicComm that can send and receive information. 
-   * Extend BasicCommReceiver and define receive() which is called by 
-   * BasicComm every time it receives information from the other device. 
+   * Gives an instance of BasicComm that can send and receive information. Extend
+   * BasicCommReceiver and define receive() which is called by BasicComm every
+   * time it receives information from the other device.
    * 
    * @param commReceiver a new instance of any subclass of BasicCommReceiver
-   * @param keys user-chosen strings that identify each type of message sent/received
+   * @param keys         user-chosen strings that identify each type of message
+   *                     sent/received
    */
   public BasicComm(BasicCommReceiver commReceiver, String[] keys) {
     this.commReceiver = commReceiver;
@@ -35,15 +39,51 @@ public class BasicComm {
   }
 
   /**
-   * Gives an instance of BasicComm that can only connect and send 
-   * information to the other device.
+   * Gives an instance of BasicComm that can send and receive information. Extend
+   * BasicCommReceiver and define receive() which is called by BasicComm every
+   * time it receives information from the other device. The communications
+   * "channel" can be changed, ie. the sockets use a tcp port other than the
+   * default port 8888 (A), ranging to port 8880 (H).
    * 
-   * @param keys user-chosen strings that identify each type of message sent/received
+   * @param channel      user-chosen "channel" for the communications (different
+   *                     tcp port than default A)
+   * @param commReceiver a new instance of any subclass of BasicCommReceiver
+   * @param keys         user-chosen strings that identify each type of message
+   *                     sent/received
+   */
+  public BasicComm(CommChannel channel, BasicCommReceiver commReceiver, String[] keys) {
+    this.channel = channel;
+    this.commReceiver = commReceiver;
+    this.commEvents = new CommEvent(keys);
+  }
+
+  /**
+   * Gives an instance of BasicComm that can only connect and send information to
+   * the other device.
+   * 
+   * @param keys user-chosen strings that identify each type of message
+   *             sent/received
    */
   public BasicComm(String[] keys) {
     this.commReceiver = new SimpleCommReceiver();
     this.commEvents = new CommEvent(keys);
-    this.disableReceive = true;
+  }
+
+  /**
+   * Gives an instance of BasicComm that can only connect and send information to
+   * the other device. The communications "channel" can be changed, ie. the
+   * sockets use a tcp port other than the default port 8888 (A), ranging to port
+   * 8880 (H).
+   * 
+   * @param channel user-chosen "channel" for the communications (different tcp
+   *                port than default A)
+   * @param keys    user-chosen strings that identify each type of message
+   *                sent/received
+   */
+  public BasicComm(CommChannel channel, String[] keys) {
+    this.channel = channel;
+    this.commReceiver = new SimpleCommReceiver();
+    this.commEvents = new CommEvent(keys);
   }
 
   /**
@@ -56,8 +96,8 @@ public class BasicComm {
   }
 
   /**
-   * Gets back the internal instance of the BasicCommReceiver,
-   * to be able to read back values if convenient. 
+   * Gets back the internal instance of the BasicCommReceiver, to be able to read
+   * back values if convenient.
    * 
    * @return the original BasicCommReceiver, but connected and initialized
    */
@@ -85,7 +125,8 @@ public class BasicComm {
    * @param event predefined event that is shared knowledge between both PcComm
    *              and EV3Comm
    * @param data  an object which can be turned into basic data types, sent
-   *              through dos and turned back into an object. Can be null to send nothing.
+   *              through dos and turned back into an object. Can be null to send
+   *              nothing.
    * @return true for successful data sending
    */
   public boolean send(String event, Transmittable data) {
@@ -116,9 +157,14 @@ public class BasicComm {
     if (connected) {
       return;
     }
-    NXTCommConnector connector = new SocketConnector();
-    NXTConnection conn = connector.waitForConnection(0, NXTConnection.PACKET);
-    establishConn(conn);
+    int portNum = 8888 - channel.ordinal();
+    try {
+      ServerSocket ss = new ServerSocket(portNum);
+      NXTConnection conn = new SocketConnection(ss.accept());
+      establishConn(conn);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   /**
@@ -130,13 +176,14 @@ public class BasicComm {
     if (connected) {
       return false;
     }
+    int portNum = 8888 - channel.ordinal();
+
     for (int i = 0; i < CONNECTION_ATTEMPTS; i++) {
       try {
-        NXTCommConnector connector = new SocketConnector();
-        NXTConnection conn = connector.connect(ipAddress, NXTConnection.PACKET);
+        NXTConnection conn = new SocketConnection(new Socket(ipAddress,portNum));
         establishConn(conn);
         return connected;
-      } catch (Exception e) {
+      } catch (IOException e) {
         
       }
     }
@@ -174,7 +221,7 @@ public class BasicComm {
      * information.
      */
     public void run() {
-      while (connected) {
+      while (isConnected()) {
         // update received messages
         try {
           byte code = dis.readByte();
@@ -184,7 +231,7 @@ public class BasicComm {
           }
         } catch (IOException e) {
           shutdown();
-        } 
+        }
       }
     }
   }
