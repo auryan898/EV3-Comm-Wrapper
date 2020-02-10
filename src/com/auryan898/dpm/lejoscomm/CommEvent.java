@@ -13,6 +13,11 @@ public class CommEvent {
   public CommEvent(String[] keys) {
     this.keys = keys;
     lookup = new HashMap<String, Integer>();
+    
+    if (keys == null) {
+      return;
+    }
+    
     for (int i = 0; i < keys.length; i++) {
       lookup.put(keys[i], i);
     }
@@ -20,7 +25,7 @@ public class CommEvent {
   }
   
   public String getKey(int i) {
-    return keys[i];
+    return keys == null ? null : keys[i];
   }
   
   /**
@@ -29,6 +34,11 @@ public class CommEvent {
    * @return
    */
   public int valueOf(String key) {
-    return lookup.get(key);
+    return lookup.containsKey(key) ? lookup.get(key) : -1;
+  }
+
+  public boolean hasKey(int code) {
+    // TODO Auto-generated method stub
+    return 0 <= code && code < keys.length;
   }
 }

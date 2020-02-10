@@ -45,8 +45,8 @@ public abstract class BasicCommReceiver {
    *              through dos and turned back into an object.
    * @return
    */
-  public boolean send(String event, Transmittable data) {
-    return commSender.send(event, data);
+  public boolean send(String event1, String event2, Transmittable data) {
+    return commSender.send(event1, event2, data);
   }
 
   /**
@@ -82,7 +82,9 @@ public abstract class BasicCommReceiver {
    * 
    * @param event a String determining what type of message is sent through the
    *              connection
+   * @param event2 a String determining what type of message is sent through the
+   *              connection
    */
-  protected abstract void receive(String event, DataInputStream dis, DataOutputStream dos);
+  protected abstract void receive(String event1, String event2, DataInputStream dis, DataOutputStream dos);
 
 }

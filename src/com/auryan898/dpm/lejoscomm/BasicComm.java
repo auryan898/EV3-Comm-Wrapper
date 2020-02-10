@@ -2,15 +2,11 @@ package com.auryan898.dpm.lejoscomm;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-
-import lejos.remote.nxt.NXTCommConnector;
 import lejos.remote.nxt.NXTConnection;
 import lejos.remote.nxt.SocketConnection;
-import lejos.remote.nxt.SocketConnector;
 import lejos.robotics.Transmittable;
 
 public class BasicComm {
@@ -23,6 +19,7 @@ public class BasicComm {
   private Thread receiver;
   private BasicCommReceiver commReceiver = null;
   private CommEvent commEvents;
+  private CommEvent commEvents1;
 
   /**
    * Gives an instance of BasicComm that can send and receive information. Extend
@@ -30,12 +27,14 @@ public class BasicComm {
    * time it receives information from the other device.
    * 
    * @param commReceiver a new instance of any subclass of BasicCommReceiver
-   * @param keys         user-chosen strings that identify each type of message
+   * @param events1         user-chosen strings that identify each type of message
    *                     sent/received
+   * @param events2 
    */
-  public BasicComm(BasicCommReceiver commReceiver, String[] keys) {
+  public BasicComm(BasicCommReceiver commReceiver, String[] events1, String[] events2) {
     this.commReceiver = commReceiver;
-    this.commEvents = new CommEvent(keys);
+    this.commEvents = new CommEvent(events1);
+    this.commEvents = new CommEvent(events2);
   }
 
   /**
@@ -48,25 +47,29 @@ public class BasicComm {
    * @param channel      user-chosen "channel" for the communications (different
    *                     tcp port than default A)
    * @param commReceiver a new instance of any subclass of BasicCommReceiver
-   * @param keys         user-chosen strings that identify each type of message
+   * @param events1         user-chosen strings that identify each type of message
    *                     sent/received
+   * @param events2 
    */
-  public BasicComm(CommChannel channel, BasicCommReceiver commReceiver, String[] keys) {
+  public BasicComm(CommChannel channel, BasicCommReceiver commReceiver, String[] events1, String[] events2) {
     this.channel = channel;
     this.commReceiver = commReceiver;
-    this.commEvents = new CommEvent(keys);
+    this.commEvents = new CommEvent(events1);
+    this.commEvents = new CommEvent(events2);
   }
 
   /**
    * Gives an instance of BasicComm that can only connect and send information to
    * the other device.
    * 
-   * @param keys user-chosen strings that identify each type of message
+   * @param events1 user-chosen strings that identify each type of message
    *             sent/received
+   * @param events2 
    */
-  public BasicComm(String[] keys) {
+  public BasicComm(String[] events1, String[] events2) {
     this.commReceiver = new SimpleCommReceiver();
-    this.commEvents = new CommEvent(keys);
+    this.commEvents = new CommEvent(events1);
+    this.commEvents = new CommEvent(events2);
   }
 
   /**
@@ -77,13 +80,15 @@ public class BasicComm {
    * 
    * @param channel user-chosen "channel" for the communications (different tcp
    *                port than default A)
-   * @param keys    user-chosen strings that identify each type of message
+   * @param events1    user-chosen strings that identify each type of message
    *                sent/received
+   * @param events2 
    */
-  public BasicComm(CommChannel channel, String[] keys) {
+  public BasicComm(CommChannel channel, String[] events1, String[] events2) {
     this.channel = channel;
     this.commReceiver = new SimpleCommReceiver();
-    this.commEvents = new CommEvent(keys);
+    this.commEvents = new CommEvent(events1);
+    this.commEvents = new CommEvent(events2);
   }
 
   /**
@@ -129,13 +134,14 @@ public class BasicComm {
    *              nothing.
    * @return true for successful data sending
    */
-  public boolean send(String event, Transmittable data) {
+  public boolean send(String event1, String event2, Transmittable data) {
     if (!connected) {
       return false;
     }
     try {
       synchronized (receiver) {
-        dos.writeByte(commEvents.valueOf(event));
+        dos.writeByte(commEvents.valueOf(event1));
+        dos.writeByte(commEvents.valueOf(event2));
         if (data != null) {
           data.dumpObject(dos);
         }
@@ -225,9 +231,11 @@ public class BasicComm {
         // update received messages
         try {
           byte code = dis.readByte();
-          String event = commEvents.getKey(code);
+          String event1 = commEvents.hasKey(code) ? commEvents.getKey(code) : "";
+          code = dis.readByte();
+          String event2 = commEvents.hasKey(code) ? commEvents.getKey(code) : "";
           synchronized (this) {
-            commReceiver.receive(event, dis, dos);
+            commReceiver.receive(event1, event2, dis, dos);
           }
         } catch (IOException e) {
           shutdown();
@@ -244,7 +252,7 @@ public class BasicComm {
 class SimpleCommReceiver extends BasicCommReceiver {
 
   @Override
-  protected void receive(String event, DataInputStream dis, DataOutputStream dos) {
+  protected void receive(String event1, String event2, DataInputStream dis, DataOutputStream dos) {
   }
 
 }
