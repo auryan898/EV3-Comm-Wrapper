@@ -134,7 +134,7 @@ public class AdvancedComm {
    *              nothing.
    * @return true for successful data sending
    */
-  public boolean send(String event1, String event2, Transmittable data) {
+  public boolean send(String event1, String event2, lejos.robotics.Transmittable data) {
     if (!connected) {
       return false;
     }
@@ -201,7 +201,7 @@ public class AdvancedComm {
    * 
    * @param conn a connection to a brick
    */
-  private void establishConn(NXTConnection conn) {
+  public void establishConn(lejos.remote.nxt.NXTConnection conn) {
     if (conn == null) {
       return;
     }
@@ -246,6 +246,11 @@ public class AdvancedComm {
 
   public void shutdown() {
     this.connected = false;
+    try {
+      this.dis.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 }
 
