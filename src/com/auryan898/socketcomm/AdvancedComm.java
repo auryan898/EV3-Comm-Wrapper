@@ -36,14 +36,14 @@ public class AdvancedComm {
 
   protected static final int CONNECTION_ATTEMPTS = 5;
 
-  protected AdvancedCommReceiver receiver; // the user defined object that handles/parsee data
+  protected AdvancedCommReceiver commReceiver; // the user defined object that handles/parsee data
   protected CommChannel channel; // the current port represented by A-G letters
   protected int port;
   protected boolean connected;
   protected boolean accepting;
 
-  protected Thread commAccepter; // a thread to accept connections
-  protected Thread commReceiver; // a thread to accept data input
+  protected Thread threadAccepter; // a thread to accept connections
+  protected Thread threadReceiver; // a thread to accept data input
   protected ServerSocket serverSocket;
   protected ReentrantLock lock;
 
@@ -62,7 +62,7 @@ public class AdvancedComm {
    * @param receiver A user-defined receiver object
    */
   public AdvancedComm(CommChannel channel, AdvancedCommReceiver receiver) {
-    this.receiver = receiver;
+    this.commReceiver = receiver;
     this.channel = channel;
     this.port = 8888 - channel.ordinal();
     accepting = false;
@@ -100,7 +100,7 @@ public class AdvancedComm {
   }
 
   public boolean send(byte event1, byte event2, byte[] data) {
-    if (!connected) {
+    if (!isConnected()) {
       return false;
     }
 
@@ -141,9 +141,9 @@ public class AdvancedComm {
       if (!keepWaiting) {
         establishConnection(serverSocket.accept());
       } else {
-        commAccepter = new Thread(new Accepter());
-        commAccepter.setDaemon(true);
-        commAccepter.start();
+        threadAccepter = new Thread(new Accepter());
+        threadAccepter.setDaemon(true);
+        threadAccepter.start();
         accepting = true;
       }
     } catch (IOException e) { // Error in connecting
@@ -200,12 +200,12 @@ public class AdvancedComm {
     dis = new DataInputStream(socket.getInputStream());
     dos = new DataOutputStream(socket.getOutputStream());
     conn = socket;
-    if (receiver != null) {
+    if (commReceiver != null) {
       try {
-        receiver.setProps(this);
-        commReceiver = new Thread(new Receiver());
-        commReceiver.setDaemon(true);
-        commReceiver.start();
+        commReceiver.setProps(this);
+        threadReceiver = new Thread(new Receiver());
+        threadReceiver.setDaemon(true);
+        threadReceiver.start();
       } catch (Exception e) {
         e.printStackTrace();
         return false;
@@ -222,7 +222,7 @@ public class AdvancedComm {
    * @return true if connection is open
    */
   protected boolean isConnected() {
-    return false;
+    return connected && dis != null && dos != null && conn != null && conn.isConnected();
   }
 
   /**
@@ -277,6 +277,7 @@ public class AdvancedComm {
   class Accepter implements Runnable {
     public void run() {
       
+      accepting = false;
     }
   }
 
@@ -289,7 +290,18 @@ public class AdvancedComm {
    */
   class Receiver implements Runnable {
     public void run() {
-
+      while(isConnected()) {
+        try {
+          byte event1 = dis.readByte();
+          byte event2 = dis.readByte();
+          lock.lock();
+          commReceiver.receive(event1, event2, dis, dos);
+          lock.unlock();
+        } catch (IOException e) {
+          // Probably disconnected (other end closed)
+          close();
+        }
+      }
     }
   }
 
