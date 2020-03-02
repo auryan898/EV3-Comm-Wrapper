@@ -59,7 +59,7 @@ public class AdvancedComm {
    * 
    * @param channel  channel to connect to other comms CommChannel A through G
    *                 (inclusive)
-   * @param receiver A user-defined receiver object
+   * @param receiver A user-defined AdvancedCommReceiver object
    */
   public AdvancedComm(CommChannel channel, AdvancedCommReceiver receiver) {
     this.commReceiver = receiver;
@@ -73,7 +73,7 @@ public class AdvancedComm {
   /**
    * Overloaded constructor that runs on Channel A (port 8888) by default.
    * 
-   * @param receiver
+   * @param receiver A user-defined AdvancedCommReceiver object
    */
   public AdvancedComm(AdvancedCommReceiver receiver) {
     this(CommChannel.A, receiver);
@@ -125,8 +125,8 @@ public class AdvancedComm {
    * to true, to immediately return this function, and keep waiting for a
    * connection, when comm is disconnected.
    * 
-   * @param keepWaiting if true it keeps accepting a connection (one at a time)
-   * @return true if successful, or if comm is successfully waiting
+   * @param  keepWaiting if true it keeps accepting a connection (one at a time)
+   * @return             true if successful, or if comm is successfully waiting
    */
   public boolean waitForConnection(boolean keepWaiting) {
     if (accepting || connected) {
@@ -159,8 +159,8 @@ public class AdvancedComm {
    * AdvancedComm or subclass). It will try 5 times (CONNECTION_ATTEMPTS), then
    * throw an error because it can't connect to the specified ip address.
    * 
-   * @param ipAddress network address of the server/waiting comm
-   * @return true if connection success
+   * @param  ipAddress network address of the server/waiting comm
+   * @return           true if connection success
    */
   public boolean connect(String ipAddress) {
     if (connected || accepting) {
@@ -174,7 +174,6 @@ public class AdvancedComm {
         establishConnection(new Socket(ipAddress, port));
         return true;
       } catch (IOException e) {
-
       }
     }
 
@@ -187,8 +186,8 @@ public class AdvancedComm {
    * further reading and writing of data. It will run the receiver object if it
    * was passed to the constructor.
    * 
-   * @param socket a valid socket connection
-   * @return true if successful, false otherwise
+   * @param  socket      a valid socket connection
+   * @return             true if successful, false otherwise
    * @throws IOException some sort of read write error occurred while opening
    *                     streams
    */
@@ -231,18 +230,21 @@ public class AdvancedComm {
   public void close() {
     lock.lock();
     try {
-      if (dis != null)
+      if (dis != null) {
         dis.close();
+      }
     } catch (IOException e) {
     }
     try {
-      if (dos != null)
+      if (dos != null) {
         dos.close();
+      }
     } catch (IOException e) {
     }
     try {
-      if (conn != null)
+      if (conn != null) {
         conn.close();
+      }
     } catch (IOException e) {
     }
 
@@ -258,8 +260,9 @@ public class AdvancedComm {
   public void stopWaiting() {
 
     try {
-      if (serverSocket != null)
+      if (serverSocket != null) {
         serverSocket.close();
+      }
     } catch (IOException e) {
     }
 

@@ -92,11 +92,11 @@ public class ConnectionTester {
     event2 = 0011;
     assertTrue("Data Sent to comm 2", comm1.send(event1, event2, dataSent));
   }
-  
+
   @Test
   public void testReconnection() {
     assertTrue("Sever Waiting", comm2.waitForConnection(true));
     assertTrue("Client Connected", comm1.connect("127.0.0.1"));
-    
+
   }
 }
