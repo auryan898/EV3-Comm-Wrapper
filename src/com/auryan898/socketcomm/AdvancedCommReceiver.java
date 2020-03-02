@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 
 public abstract class AdvancedCommReceiver {
 
-  public void setProps(AdvancedComm advancedComm, DataInputStream dis, DataOutputStream dos) {
+  public void setProps(AdvancedComm advancedComm) {
     
   }
 

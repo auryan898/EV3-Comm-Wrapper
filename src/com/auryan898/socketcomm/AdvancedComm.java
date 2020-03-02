@@ -5,10 +5,29 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The primary class for creating/instantiating an object that allows one to
- * send communications between java programs.
+ * This class defines an Advanced Communications Object. Instances of this class
+ * are capable of utilizing sockets to open communications, that can connect to
+ * other devices that are also running sockets. It uses ports 8888 to 8880,
+ * represented by the CommChannel enumeration's range of A to G. Each
+ * AdvancedComm instance can connect to each other and work seamlessly, sending
+ * and receiving information. Use this class along with AdvancedCommReceiver for
+ * the most low-level usage of this class (ie data streams and bytes).
+ * 
+ * <p>
+ * Each Advanced Communications Object (shortened to comm from here on) will
+ * follow a consistent protocol every time it sends and receives information.
+ * When the comm sends data, it first sends *two signed bytes* that are for
+ * identification purposes only. Each signed byte is called an event here, and
+ * it allows one to differentiate between different messages. Next up is a
+ * series of bytes, basically a byte array. That's it.
+ * 
+ * <p>
+ * See BasicComm/BasicCommReceiver and ServerComm/ServerCommReceiver for
+ * alternative extensions and the test code for implementations of this
+ * communication method.
  * 
  * @author Ryan Au
  *
@@ -19,137 +38,268 @@ public class AdvancedComm {
 
   protected AdvancedCommReceiver receiver; // the user defined object that handles/parsee data
   protected CommChannel channel; // the current port represented by A-G letters
-  protected CommStatus status; // current status of communications
-  protected boolean connected = false;
-  protected boolean waiting = false;
+  protected int port;
+  protected boolean connected;
+  protected boolean accepting;
 
   protected Thread commAccepter; // a thread to accept connections
   protected Thread commReceiver; // a thread to accept data input
-
   protected ServerSocket serverSocket;
-  protected Socket currSocket;
+  protected ReentrantLock lock;
+
+  // Shared resources that need to be locked
+  protected Socket conn;
   protected DataInputStream dis;
   protected DataOutputStream dos;
 
   /**
+   * Constructor for an instance that can send and receive data between another
+   * computer. As long as the other device can use raw sockets, then this program
+   * will work.
    * 
-   * 
-   * 
-   * @param channel  The channel is of A through G (inclusive)
+   * @param channel  channel to connect to other comms CommChannel A through G
+   *                 (inclusive)
    * @param receiver A user-defined receiver object
    */
   public AdvancedComm(CommChannel channel, AdvancedCommReceiver receiver) {
     this.receiver = receiver;
     this.channel = channel;
+    this.port = 8888 - channel.ordinal();
+    accepting = false;
+    connected = false;
+    lock = new ReentrantLock();
   }
 
-  public boolean waitForConnection(boolean keepWaiting) {
-    // Only wait if not already waiting
-    if (waiting) {
+  /**
+   * Overloaded constructor that runs on Channel A (port 8888) by default.
+   * 
+   * @param receiver
+   */
+  public AdvancedComm(AdvancedCommReceiver receiver) {
+    this(CommChannel.A, receiver);
+  }
+
+  /**
+   * Overloaded constructor that does not run a thread that continuously reads
+   * data from the connection, running on specified channel. Specifically useful
+   * for only sending data from one device to a different receiving device.
+   * 
+   * @param channel the channel to connect with
+   */
+  public AdvancedComm(CommChannel channel) {
+    this(channel, null);
+  }
+
+  /**
+   * Overloaded constructor that does not run a thread that continuously reads
+   * data from the connection, running on Channel A (port 8888). Specifically
+   * useful for only sending data from one device to a different receiving device.
+   */
+  public AdvancedComm() {
+    this(CommChannel.A, null);
+  }
+
+  public boolean send(byte event1, byte event2, byte[] data) {
+    if (!connected) {
       return false;
     }
 
-    // establish the port (channel) to use
-    int portNum = 8888 - channel.ordinal();
     try {
-      serverSocket = new ServerSocket(portNum);
-      commAccepter = new Thread();
-    } catch (IOException | IllegalArgumentException | SecurityException e) {
+      lock.lock();
+      dos.writeByte(event1);
+      dos.writeByte(event2);
+      dos.write(data);
+      if (dos.size() > 0) {
+        dos.flush();
+      }
+    } catch (IOException e) {
       return false;
     }
-    
+
     return true;
   }
 
-  public boolean connect(String ipAddress) {
-    // Only accepting connection if there is no existing connections
-    switch (this.status) {
-      case DISCONNECTED:
-        break;
-      default:
-        return false; // when waiting or already connected
+  /**
+   * Sets this device into accepting mode, where it will wait until a device
+   * connects to it via another AdvancedComm or subclass instance. Set keepWaiting
+   * to true, to immediately return this function, and keep waiting for a
+   * connection, when comm is disconnected.
+   * 
+   * @param keepWaiting if true it keeps accepting a connection (one at a time)
+   * @return true if successful, or if comm is successfully waiting
+   */
+  public boolean waitForConnection(boolean keepWaiting) {
+    if (accepting || connected) {
+      // Return false if already accepting or connected
+      return false;
     }
 
-    // establish the port (channel) to use
-    int portNum = 8888 - channel.ordinal();
-    // attempt several connections
+    // try to create the server socket and establish the connection
+    // or start accepter thread
+    try {
+      serverSocket = new ServerSocket(port);
+      if (!keepWaiting) {
+        establishConnection(serverSocket.accept());
+      } else {
+        commAccepter = new Thread(new Accepter());
+        commAccepter.setDaemon(true);
+        commAccepter.start();
+        accepting = true;
+      }
+    } catch (IOException e) { // Error in connecting
+      // if fail, return false
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Actively attempts to connect to an existing Server Socket (ie a waiting
+   * AdvancedComm or subclass). It will try 5 times (CONNECTION_ATTEMPTS), then
+   * throw an error because it can't connect to the specified ip address.
+   * 
+   * @param ipAddress network address of the server/waiting comm
+   * @return true if connection success
+   */
+  public boolean connect(String ipAddress) {
+    if (connected || accepting) {
+      // Return false if already accepting or connected
+      return false;
+    }
+
+    // try multiple times to create the socket and establish the connection
     for (int i = 0; i < CONNECTION_ATTEMPTS; i++) {
       try {
-        Socket s = new Socket(ipAddress, portNum);
-        if (establishConnection(s)) {
-          return true;
-        }
+        establishConnection(new Socket(ipAddress, port));
+        return true;
       } catch (IOException e) {
+
       }
     }
+
+    // reaches here, it didn't connect
     return false;
   }
 
   /**
+   * Given a socket instance, it will try to open an input and output stream for
+   * further reading and writing of data. It will run the receiver object if it
+   * was passed to the constructor.
    * 
-   * 
-   * @param socket
-   * @return
-   * @throws IOException
+   * @param socket a valid socket connection
+   * @return true if successful, false otherwise
+   * @throws IOException some sort of read write error occurred while opening
+   *                     streams
    */
   protected boolean establishConnection(Socket socket) throws IOException {
-    // this failed because socket shouldn't be null
-    if (socket == null) {
+    if (socket == null || connected || conn != null || dis != null || dos != null) {
       return false;
     }
-    // Get the input streams
-    final DataInputStream dis = new DataInputStream(socket.getInputStream());
-    final DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-
-    // Update the status of this comm
-    status = CommStatus.CONNECTED;
-    try {
-      if (receiver != null) {
-        // Set the properties of the receiver
-        receiver.setProps(this, dis, dos);
-        // Start the receiver thread
-        commReceiver = new Thread(new Runnable() {
-          public void run() {
-            while (status == CommStatus.CONNECTED) {
-              try {
-               synchronized(this) {
-                 byte code1 = dis.readByte();
-                 byte code2 = dis.readByte();
-                 receiver.receive(code1,code2,dis,dos);
-               }
-              } catch (IOException e) {
-                shutdown();
-              }              
-            }
-          }
-        });
+    lock.lock();
+    dis = new DataInputStream(socket.getInputStream());
+    dos = new DataOutputStream(socket.getOutputStream());
+    conn = socket;
+    if (receiver != null) {
+      try {
+        receiver.setProps(this);
+        commReceiver = new Thread(new Receiver());
         commReceiver.setDaemon(true);
         commReceiver.start();
+      } catch (Exception e) {
+        e.printStackTrace();
+        return false;
       }
-    } catch (Exception e) {
     }
-
-    // Set the instance variables for the data streams
-    this.currSocket = socket;
-    this.dis = dis;
-    this.dos = dos;
+    connected = true;
+    lock.unlock();
     return true;
   }
 
+  /**
+   * Determines if the connection is still open.
+   * 
+   * @return true if connection is open
+   */
   protected boolean isConnected() {
-    // TODO Auto-generated method stub
     return false;
   }
 
-  public void disconnect() {
+  /**
+   * Attempts to close all connections and free up memory.
+   */
+  public void close() {
+    lock.lock();
+    try {
+      if (dis != null)
+        dis.close();
+    } catch (IOException e) {
+    }
+    try {
+      if (dos != null)
+        dos.close();
+    } catch (IOException e) {
+    }
+    try {
+      if (conn != null)
+        conn.close();
+    } catch (IOException e) {
+    }
 
+    dis = null;
+    dos = null;
+    conn = null;
+    connected = false;
   }
 
-  public void shutdown() {
+  /**
+   * Stops the accepter thread from running and checking for new connections.
+   */
+  public void stopWaiting() {
 
+    try {
+      if (serverSocket != null)
+        serverSocket.close();
+    } catch (IOException e) {
+    }
+
+    serverSocket = null;
+    accepting = false;
   }
 
+  /**
+   * Inner class to define the thread that manages continuously accepting
+   * connections from clients.
+   * 
+   * @author Ryan Au
+   *
+   */
+  class Accepter implements Runnable {
+    public void run() {
+      
+    }
+  }
+
+  /**
+   * Inner class to define the thread that manages continuously reading
+   * data from clients.
+   * 
+   * @author Ryan Au
+   *
+   */
+  class Receiver implements Runnable {
+    public void run() {
+
+    }
+  }
+
+  /**
+   * The state of the current communication object.
+   * 
+   * @author Ryan Au
+   *
+   */
   enum CommStatus {
-    WAITER, CONNECTOR
+    ACCEPTOR, CONNECTOR, NONE
   }
 }
