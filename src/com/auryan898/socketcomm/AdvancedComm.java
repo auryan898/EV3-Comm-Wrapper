@@ -221,7 +221,7 @@ public class AdvancedComm {
    * 
    * @return true if connection is open
    */
-  protected boolean isConnected() {
+  public boolean isConnected() {
     return connected && dis != null && dos != null && conn != null && conn.isConnected();
   }
 
@@ -276,8 +276,14 @@ public class AdvancedComm {
    */
   class Accepter implements Runnable {
     public void run() {
-      
-      accepting = false;
+      accepting = true;
+      try {
+        establishConnection(serverSocket.accept());
+      } catch (IOException e) {
+      } finally {
+        accepting = false;
+        stopWaiting();
+      }
     }
   }
 
@@ -290,13 +296,14 @@ public class AdvancedComm {
    */
   class Receiver implements Runnable {
     public void run() {
-      while(isConnected()) {
+      while (isConnected()) {
         try {
           byte event1 = dis.readByte();
           byte event2 = dis.readByte();
           lock.lock();
           commReceiver.receive(event1, event2, dis, dos);
           lock.unlock();
+          connected = true;
         } catch (IOException e) {
           // Probably disconnected (other end closed)
           close();
@@ -313,5 +320,9 @@ public class AdvancedComm {
    */
   enum CommStatus {
     ACCEPTOR, CONNECTOR, NONE
+  }
+
+  public boolean isWaiting() {
+    return serverSocket != null && !serverSocket.isClosed() && accepting;
   }
 }

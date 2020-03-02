@@ -9,7 +9,7 @@ public abstract class AdvancedCommReceiver {
     
   }
 
-  protected abstract void receive(byte code1, byte code2, DataInputStream dis,
+  public abstract void receive(byte code1, byte code2, DataInputStream dis,
       DataOutputStream dos);
   
 }
