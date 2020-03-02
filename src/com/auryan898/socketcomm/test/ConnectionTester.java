@@ -31,8 +31,10 @@ public class ConnectionTester {
     comm2 = new AdvancedComm(CommChannel.A, new AdvancedCommReceiver() {
       public void receive(byte code1, byte code2, DataInputStream dis, DataOutputStream dos) {
         receiveDone = false;
+        System.out.println("Status: Received info");
         assertEquals("Event Code 1 should be equivalent", event1, code1);
         assertEquals("Event Code 2 should be equivalent", event2, code2);
+        System.out.println("Status: Received " + (int)code1 + " & " + (int)code2);
         try {
           dis.readFully(dataReceived);
         } catch (IOException e) {
@@ -62,7 +64,7 @@ public class ConnectionTester {
 
     long startTime = System.currentTimeMillis(); // fetch starting time
     while (comm2.isWaiting() && (System.currentTimeMillis() - startTime) < 2000) {
-      // Wiaitng for a little while first
+      // Waiting for a little while first to make connection, and end waiting
     }
 
     assertFalse("Server no longer waiting", comm2.isWaiting());
@@ -88,9 +90,15 @@ public class ConnectionTester {
     dataSent[3] = -128;
     dataSent[4] = 0;
     event1 = 23;
-    event2 = 12;
-    event2 = 0011;
+    event2 = 0b11001;
+    System.out.println("Status: Sending info");
+    receiveDone = false;
     assertTrue("Data Sent to comm 2", comm1.send(event1, event2, dataSent));
+    System.out.println("Status: Sent info");
+    long startTime = System.currentTimeMillis(); // fetch starting time
+    while (!receiveDone && (System.currentTimeMillis() - startTime) < 2000) {
+      // Waiting for a little while first, to allow time to receive data and test it
+    }
   }
 
   @Test

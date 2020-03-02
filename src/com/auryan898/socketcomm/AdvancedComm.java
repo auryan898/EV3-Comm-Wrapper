@@ -123,7 +123,7 @@ public class AdvancedComm {
    * Sets this device into accepting mode, where it will wait until a device
    * connects to it via another AdvancedComm or subclass instance. Set keepWaiting
    * to true, to immediately return this function, and keep waiting for a
-   * connection, when comm is disconnected.
+   * connection. Stops waiting once connection is made, or told to stopWaiting().
    * 
    * @param  keepWaiting if true it keeps accepting a connection (one at a time)
    * @return             true if successful, or if comm is successfully waiting
