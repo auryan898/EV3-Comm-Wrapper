@@ -7,14 +7,15 @@ import lejos.robotics.Transmittable;
 
 public abstract class AdvancedCommReceiver {
 
-  private CommEvent commEvents;
-  private DataInputStream dis;
-  private AdvancedComm commSender;
+  private AdvancedComm sender;
+  private CommEvent events1;
+  private CommEvent events2;
 
-  public void setProps(AdvancedComm commSender, DataInputStream dis, CommEvent commEvents) {
-    this.dis = dis;
-    this.commEvents = commEvents;
-    this.commSender = commSender;
+  public void setProps(AdvancedComm commSender) {
+    CommEvent[] e = commSender.getEvents();
+    this.events1 = e[0];
+    this.events2 = e[1];
+    this.sender = commSender;
   }
 
   /**
@@ -22,8 +23,8 @@ public abstract class AdvancedCommReceiver {
    * 
    * @return commEvents object
    */
-  public CommEvent getEvents() {
-    return commEvents;
+  public CommEvent[] getEvents() {
+    return sender.getEvents();
   }
 
   /**
@@ -32,7 +33,7 @@ public abstract class AdvancedCommReceiver {
    * @return if connected to something
    */
   public boolean isConnected() {
-    return commSender.isConnected();
+    return sender.isConnected();
   }
 
   /**
@@ -46,14 +47,14 @@ public abstract class AdvancedCommReceiver {
    * @return
    */
   public boolean send(String event1, String event2, Transmittable data) {
-    return commSender.send(event1, event2, data);
+    return sender.send(event1, event2, data);
   }
 
   /**
    * Can be used to properly stop the loop that checks for incoming data.
    */
   public void shutdown() {
-    commSender.shutdown();
+    sender.shutdown();
   }
 
   /**
@@ -63,7 +64,7 @@ public abstract class AdvancedCommReceiver {
    * @param data the object which data will be written to
    * @return true if there was no problem reading the data
    */
-  public boolean read(Transmittable data) {
+  public boolean read(DataInputStream dis, Transmittable data) {
     if (data == null) {
       return false;
     }

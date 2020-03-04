@@ -16,30 +16,32 @@ public class AdvancedComm {
   private CommChannel channel = CommChannel.A;
   private DataInputStream dis;
   private DataOutputStream dos;
-  private Thread receiver;
-  private AdvancedCommReceiver commReceiver = null;
-  private CommEvent commEvents;
-  private CommEvent commEvents1;
+  private Thread receiverThread;
+  private AdvancedCommReceiver receiver = null;
+  private CommEvent events1;
+  private CommEvent events2;
 
   /**
-   * Gives an instance of AdvancedComm that can send and receive information. Extend
-   * AdvancedCommReceiver and define receive() which is called by AdvancedComm every
+   * Gives an instance of AdvancedComm that can send and receive information.
+   * Extend
+   * AdvancedCommReceiver and define receive() which is called by AdvancedComm
+   * every
    * time it receives information from the other device.
    * 
    * @param commReceiver a new instance of any subclass of AdvancedCommReceiver
-   * @param events1         user-chosen strings that identify each type of message
+   * @param events1      user-chosen strings that identify each type of message
    *                     sent/received
-   * @param events2 
+   * @param events2
    */
   public AdvancedComm(AdvancedCommReceiver commReceiver, String[] events1, String[] events2) {
-    this.commReceiver = commReceiver;
-    this.commEvents = new CommEvent(events1);
-    this.commEvents = new CommEvent(events2);
+    this(CommChannel.A, commReceiver, events1, events2);
   }
 
   /**
-   * Gives an instance of AdvancedComm that can send and receive information. Extend
-   * AdvancedCommReceiver and define receive() which is called by AdvancedComm every
+   * Gives an instance of AdvancedComm that can send and receive information.
+   * Extend
+   * AdvancedCommReceiver and define receive() which is called by AdvancedComm
+   * every
    * time it receives information from the other device. The communications
    * "channel" can be changed, ie. the sockets use a tcp port other than the
    * default port 8888 (A), ranging to port 8880 (H).
@@ -47,48 +49,46 @@ public class AdvancedComm {
    * @param channel      user-chosen "channel" for the communications (different
    *                     tcp port than default A)
    * @param commReceiver a new instance of any subclass of AdvancedCommReceiver
-   * @param events1         user-chosen strings that identify each type of message
+   * @param events1      user-chosen strings that identify each type of message
    *                     sent/received
-   * @param events2 
+   * @param events2
    */
-  public AdvancedComm(CommChannel channel, AdvancedCommReceiver commReceiver, String[] events1, String[] events2) {
+  public AdvancedComm(CommChannel channel, AdvancedCommReceiver commReceiver, String[] events1,
+      String[] events2) {
     this.channel = channel;
-    this.commReceiver = commReceiver;
-    this.commEvents = new CommEvent(events1);
-    this.commEvents = new CommEvent(events2);
+    this.receiver = commReceiver;
+    this.events1 = new CommEvent(events1);
+    this.events2 = new CommEvent(events2);
   }
 
   /**
-   * Gives an instance of AdvancedComm that can only connect and send information to
+   * Gives an instance of AdvancedComm that can only connect and send information
+   * to
    * the other device.
    * 
    * @param events1 user-chosen strings that identify each type of message
-   *             sent/received
-   * @param events2 
+   *                sent/received
+   * @param events2
    */
   public AdvancedComm(String[] events1, String[] events2) {
-    this.commReceiver = new SimpleCommReceiver();
-    this.commEvents = new CommEvent(events1);
-    this.commEvents = new CommEvent(events2);
+    this(CommChannel.A, null, events1, events2);
   }
 
   /**
-   * Gives an instance of AdvancedComm that can only connect and send information to
+   * Gives an instance of AdvancedComm that can only connect and send information
+   * to
    * the other device. The communications "channel" can be changed, ie. the
    * sockets use a tcp port other than the default port 8888 (A), ranging to port
    * 8880 (H).
    * 
    * @param channel user-chosen "channel" for the communications (different tcp
    *                port than default A)
-   * @param events1    user-chosen strings that identify each type of message
+   * @param events1 user-chosen strings that identify each type of message
    *                sent/received
-   * @param events2 
+   * @param events2
    */
   public AdvancedComm(CommChannel channel, String[] events1, String[] events2) {
-    this.channel = channel;
-    this.commReceiver = new SimpleCommReceiver();
-    this.commEvents = new CommEvent(events1);
-    this.commEvents = new CommEvent(events2);
+    this(channel, null, events1, events2);
   }
 
   /**
@@ -96,19 +96,20 @@ public class AdvancedComm {
    * 
    * @return commEvents object
    */
-  public CommEvent getEvents() {
-    return commEvents;
+  public CommEvent[] getEvents() {
+    return new CommEvent[]{events1,events2};
   }
 
   /**
-   * Gets back the internal instance of the AdvancedCommReceiver, to be able to read
+   * Gets back the internal instance of the AdvancedCommReceiver, to be able to
+   * read
    * back values if convenient.
    * 
    * @return the original AdvancedCommReceiver, but connected and initialized
    */
   public AdvancedCommReceiver getReceiver() {
     if (isConnected()) {
-      return commReceiver;
+      return receiver;
     } else {
       return null;
     }
@@ -139,9 +140,9 @@ public class AdvancedComm {
       return false;
     }
     try {
-      synchronized (receiver) {
-        dos.writeByte(commEvents.valueOf(event1));
-        dos.writeByte(commEvents.valueOf(event2));
+      synchronized (receiverThread) {
+        dos.writeByte(events1.valueOf(event1));
+        dos.writeByte(events2.valueOf(event2));
         if (data != null) {
           data.dumpObject(dos);
         }
@@ -186,11 +187,11 @@ public class AdvancedComm {
 
     for (int i = 0; i < CONNECTION_ATTEMPTS; i++) {
       try {
-        NXTConnection conn = new SocketConnection(new Socket(ipAddress,portNum));
+        NXTConnection conn = new SocketConnection(new Socket(ipAddress, portNum));
         establishConn(conn);
         return connected;
       } catch (IOException e) {
-        
+
       }
     }
     return false;
@@ -209,15 +210,15 @@ public class AdvancedComm {
     dos = new DataOutputStream(conn.openOutputStream());
     // Establish Receiver Daemon
     try {
-      commReceiver.setProps(this, dis, commEvents);
+      receiver.setProps(this);
     } catch (Exception e) {
       e.printStackTrace();
       return;
     }
     connected = true;
-    receiver = new Thread(new Receiver());
-    receiver.setDaemon(true);
-    receiver.start();
+    receiverThread = new Thread(new Receiver());
+    receiverThread.setDaemon(true);
+    receiverThread.start();
   }
 
   class Receiver implements Runnable {
@@ -231,11 +232,11 @@ public class AdvancedComm {
         // update received messages
         try {
           byte code = dis.readByte();
-          String event1 = commEvents.hasKey(code) ? commEvents.getKey(code) : "";
+          String event1 = events1.hasKey(code) ? events1.getKey(code) : "";
           code = dis.readByte();
-          String event2 = commEvents.hasKey(code) ? commEvents.getKey(code) : "";
+          String event2 = events2.hasKey(code) ? events2.getKey(code) : "";
           synchronized (this) {
-            commReceiver.receive(event1, event2, dis, dos);
+            receiver.receive(event1, event2, dis, dos);
           }
         } catch (IOException e) {
           shutdown();
@@ -252,12 +253,4 @@ public class AdvancedComm {
       e.printStackTrace();
     }
   }
-}
-
-class SimpleCommReceiver extends AdvancedCommReceiver {
-
-  @Override
-  protected void receive(String event1, String event2, DataInputStream dis, DataOutputStream dos) {
-  }
-
 }
