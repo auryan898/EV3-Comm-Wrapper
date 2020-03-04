@@ -14,7 +14,7 @@ import com.auryan898.socketcomm.AdvancedComm;
 import com.auryan898.socketcomm.AdvancedCommReceiver;
 import com.auryan898.socketcomm.CommChannel;
 
-public class ConnectionTester {
+public class AdvancedConnectionTester {
   private AdvancedComm comm1;
   private AdvancedComm comm2;
   private byte event1;
@@ -34,12 +34,13 @@ public class ConnectionTester {
         System.out.println("Status: Received info");
         assertEquals("Event Code 1 should be equivalent", event1, code1);
         assertEquals("Event Code 2 should be equivalent", event2, code2);
-        System.out.println("Status: Received " + (int)code1 + " & " + (int)code2);
+        System.out.println("Status: Received " + (int) code1 + " & " + (int) code2);
         try {
           dis.readFully(dataReceived);
         } catch (IOException e) {
           assertTrue("Connection Successfully closed while reading bytes. IOEXCeption", true);
         }
+        System.out.println("Status: Received data");
         assertArrayEquals("Data sent equals data received", dataSent, dataReceived);
         receiveDone = true;
       }
@@ -58,7 +59,7 @@ public class ConnectionTester {
 
   @Test
   public void testConnection() {
-    assertTrue("Sever Waiting", comm2.waitForConnection(true));
+    assertTrue("Server Waiting", comm2.waitForConnection(true));
     assertTrue("Server is waiting", comm2.isWaiting());
     assertTrue("Client Connected", comm1.connect("127.0.0.1"));
 
@@ -99,12 +100,35 @@ public class ConnectionTester {
     while (!receiveDone && (System.currentTimeMillis() - startTime) < 2000) {
       // Waiting for a little while first, to allow time to receive data and test it
     }
+    comm1.close();
+    comm2.close();
+
+    assertFalse("Server Disconnected", comm2.isConnected());
+    assertFalse("Client Disconnected", comm1.isConnected());
+    comm1 = null;
+    comm2 = null;
   }
 
   @Test
-  public void testReconnection() {
+  public void testNoReading() {
     assertTrue("Sever Waiting", comm2.waitForConnection(true));
     assertTrue("Client Connected", comm1.connect("127.0.0.1"));
+    comm2.send((byte)0, (byte)0, new byte[] { 1, 2, 3 });
+    event1 = 1;
+    event2 = 2;
+    dataSent[0] = 5;
+    receiveDone = false;
+    comm1.send(event1, event2, dataSent);
+    long startTime = System.currentTimeMillis(); // fetch starting time
+    while (!receiveDone && (System.currentTimeMillis() - startTime) < 2000) {
+      // Waiting for a little while first, to allow time to receive data and test it
+    }
+    comm1.close();
+    comm2.close();
 
+    assertFalse("Server Disconnected", comm2.isConnected());
+    assertFalse("Client Disconnected", comm1.isConnected());
+    comm1 = null;
+    comm2 = null;
   }
 }

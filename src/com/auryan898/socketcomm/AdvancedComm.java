@@ -7,6 +7,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.auryan898.socketcomm.datastream.ByteStream;
+import com.auryan898.socketcomm.datastream.DataStream;
+
 /**
  * This class defines an Advanced Communications Object. Instances of this class
  * are capable of utilizing sockets to open communications, that can connect to
@@ -100,20 +103,36 @@ public class AdvancedComm {
   }
 
   public boolean send(byte event1, byte event2, byte[] data) {
+    return send(event1,event2,new ByteStream(data));
+  }
+  
+  /**
+   * 
+   * 
+   * @param  event1 a byte value to help identify this send message
+   * @param  event2 a byte value to help identify this send message
+   * @param  data   a byte array that is sent to other device
+   * @return true for successfully sending message
+   */
+  public boolean send(byte event1, byte event2, DataStream dataStream) {
     if (!isConnected()) {
       return false;
     }
 
+    lock.lock();
     try {
-      lock.lock();
       dos.writeByte(event1);
       dos.writeByte(event2);
-      dos.write(data);
+      if (dataStream != null) {
+        dataStream.dumpObject(dos);
+      }
       if (dos.size() > 0) {
         dos.flush();
       }
     } catch (IOException e) {
       return false;
+    } finally {
+      lock.unlock();
     }
 
     return true;
@@ -252,6 +271,7 @@ public class AdvancedComm {
     dos = null;
     conn = null;
     connected = false;
+    lock.unlock();
   }
 
   /**
@@ -265,7 +285,6 @@ public class AdvancedComm {
       }
     } catch (IOException e) {
     }
-
     serverSocket = null;
     accepting = false;
   }
