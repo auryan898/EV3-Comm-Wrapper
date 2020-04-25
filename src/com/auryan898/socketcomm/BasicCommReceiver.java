@@ -3,7 +3,7 @@ package com.auryan898.socketcomm;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 
-import com.auryan898.socketcomm.datastream.CommData;
+import com.auryan898.socketcomm.serialdata.CommData;
 
 public abstract class BasicCommReceiver extends AdvancedCommReceiver {
 

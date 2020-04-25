@@ -7,8 +7,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.auryan898.socketcomm.datastream.ByteStream;
-import com.auryan898.socketcomm.datastream.DataStream;
+import com.auryan898.socketcomm.serialdata.ByteData;
+import com.auryan898.socketcomm.serialdata.SerialData;
 
 /**
  * This class defines an Advanced Communications Object. Instances of this class
@@ -42,8 +42,8 @@ public class AdvancedComm {
   protected AdvancedCommReceiver commReceiver; // the user defined object that handles/parsee data
   protected CommChannel channel; // the current port represented by A-G letters
   protected int port;
-  protected boolean connected;
   protected boolean accepting;
+  protected boolean immediateReceiving;
 
   protected Thread threadAccepter; // a thread to accept connections
   protected Thread threadReceiver; // a thread to accept data input
@@ -69,7 +69,6 @@ public class AdvancedComm {
     this.channel = channel;
     this.port = 8888 - channel.ordinal();
     accepting = false;
-    connected = false;
     lock = new ReentrantLock();
   }
 
@@ -102,19 +101,36 @@ public class AdvancedComm {
     this(CommChannel.A, null);
   }
 
-  public boolean send(byte event1, byte event2, byte[] data) {
-    return send(event1,event2,new ByteStream(data));
-  }
-  
   /**
+   * Sends DataStream object to connected socket/device. data can be set to null
+   * to send no data, to send just the two bytes event1 and event2.
    * 
+   * <p>
+   * Gives false when the socket is disconnected, or dos is null.
    * 
    * @param  event1 a byte value to help identify this send message
    * @param  event2 a byte value to help identify this send message
    * @param  data   a byte array that is sent to other device
-   * @return true for successfully sending message
+   * @return        true for successfully sending message
    */
-  public boolean send(byte event1, byte event2, DataStream dataStream) {
+  public boolean send(byte event1, byte event2, byte[] data) {
+    return send(event1, event2, new ByteData(data));
+  }
+
+  /**
+   * Sends DataStream object to connected socket/device. dataStream can be null to
+   * send no data,
+   * to send just the two bytes event1 and event2.
+   * 
+   * <p>
+   * Gives false when the socket is disconnected, or dos is null.
+   * 
+   * @param  event1     a byte value to help identify this send message
+   * @param  event2     a byte value to help identify this send message
+   * @param  dataStream a DataStream containing data that is sent to other device
+   * @return            true for successfully sending message
+   */
+  public boolean send(byte event1, byte event2, SerialData dataStream) {
     if (!isConnected()) {
       return false;
     }
@@ -139,16 +155,49 @@ public class AdvancedComm {
   }
 
   /**
+   * Reads data from connection, and passes it to the commReceiver. This method is
+   * blocking until data can be read from the stream.
+   * 
+   * <p>
+   * Gives false when the socket is disconnected (at start or during), the stream
+   * is null, or
+   * commReceiver is null.
+   * 
+   * @return
+   */
+  public boolean read() {
+    if (!isConnected() || dis == null || commReceiver == null) {
+      return false;
+    }
+    try {
+      byte event1 = dis.readByte();
+      byte event2 = dis.readByte();
+      lock.lock();
+      commReceiver.receive(event1, event2, dis, dos);
+      while (dis.available() > 0) {
+        dis.skip(dis.available()); // Skip unread bytes
+      }
+      lock.unlock();
+    } catch (IOException e) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Sets this device into accepting mode, where it will wait until a device
    * connects to it via another AdvancedComm or subclass instance. Set keepWaiting
    * to true, to immediately return this function, and keep waiting for a
    * connection. Stops waiting once connection is made, or told to stopWaiting().
    * 
+   * <p>
+   * Gives false when connected or already accepting.
+   * 
    * @param  keepWaiting if true it keeps accepting a connection (one at a time)
-   * @return             true if successful, or if comm is successfully waiting
+   * @return             true if successful, or if comm is waiting
    */
   public boolean waitForConnection(boolean keepWaiting) {
-    if (accepting || connected) {
+    if (accepting || isConnected()) {
       // Return false if already accepting or connected
       return false;
     }
@@ -173,6 +222,26 @@ public class AdvancedComm {
     return true;
   }
 
+  public boolean isWaiting() {
+    return serverSocket != null && !serverSocket.isClosed() && accepting && threadAccepter != null
+        && threadAccepter.isAlive();
+  }
+
+  /**
+   * Stops the accepter thread from running and checking for new connections.
+   */
+  public void stopWaiting() {
+
+    try {
+      if (serverSocket != null) {
+        serverSocket.close();
+      }
+    } catch (IOException e) {
+    }
+    serverSocket = null;
+    accepting = false;
+  }
+
   /**
    * Actively attempts to connect to an existing Server Socket (ie a waiting
    * AdvancedComm or subclass). It will try 5 times (CONNECTION_ATTEMPTS), then
@@ -182,7 +251,7 @@ public class AdvancedComm {
    * @return           true if connection success
    */
   public boolean connect(String ipAddress) {
-    if (connected || accepting) {
+    if (isConnected() || accepting) {
       // Return false if already accepting or connected
       return false;
     }
@@ -211,7 +280,7 @@ public class AdvancedComm {
    *                     streams
    */
   protected boolean establishConnection(Socket socket) throws IOException {
-    if (socket == null || connected || conn != null || dis != null || dos != null) {
+    if (socket == null || isConnected()) {
       return false;
     }
     lock.lock();
@@ -229,7 +298,6 @@ public class AdvancedComm {
         return false;
       }
     }
-    connected = true;
     lock.unlock();
     return true;
   }
@@ -240,7 +308,39 @@ public class AdvancedComm {
    * @return true if connection is open
    */
   public boolean isConnected() {
-    return connected && dis != null && dos != null && conn != null && conn.isConnected();
+    return dis != null && dos != null && conn != null && conn.isConnected();
+  }
+
+  /**
+   * Start the thread for receiving data.
+   * 
+   * @param  commReceiver
+   * @return
+   */
+  public boolean startReceiving(AdvancedCommReceiver commReceiver) {
+    if (commReceiver != null && isConnected() && !isReceiving()) {
+      try {
+        commReceiver.setProps(this);
+        threadReceiver = new Thread(new Receiver());
+        threadReceiver.setDaemon(true);
+        threadReceiver.start();
+      } catch (Exception e) {
+        e.printStackTrace();
+        return false;
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Determines if the thread for receiving data is active.
+   * 
+   * @return true if thread is active
+   */
+  public boolean isReceiving() {
+    return threadReceiver != null && threadReceiver.isAlive();
   }
 
   /**
@@ -270,23 +370,7 @@ public class AdvancedComm {
     dis = null;
     dos = null;
     conn = null;
-    connected = false;
     lock.unlock();
-  }
-
-  /**
-   * Stops the accepter thread from running and checking for new connections.
-   */
-  public void stopWaiting() {
-
-    try {
-      if (serverSocket != null) {
-        serverSocket.close();
-      }
-    } catch (IOException e) {
-    }
-    serverSocket = null;
-    accepting = false;
   }
 
   /**
@@ -325,7 +409,6 @@ public class AdvancedComm {
           lock.lock();
           commReceiver.receive(event1, event2, dis, dos);
           lock.unlock();
-          connected = true;
         } catch (IOException e) {
           // Probably disconnected (other end closed)
           close();
@@ -342,9 +425,5 @@ public class AdvancedComm {
    */
   enum CommStatus {
     ACCEPTOR, CONNECTOR, NONE
-  }
-
-  public boolean isWaiting() {
-    return serverSocket != null && !serverSocket.isClosed() && accepting;
   }
 }

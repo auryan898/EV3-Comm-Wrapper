@@ -1,18 +1,18 @@
-package com.auryan898.socketcomm.datastream;
+package com.auryan898.socketcomm.serialdata;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class ByteStream extends DataStream {
+public class ByteData implements SerialData {
 
   private byte[] data;
 
-  public ByteStream() {
+  public ByteData() {
     this.data = null;
   }
 
-  public ByteStream(byte[] data) {
+  public ByteData(byte[] data) {
     this.data = data;
   }
 

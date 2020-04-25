@@ -1,15 +1,16 @@
 package com.auryan898.socketcomm.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import com.auryan898.socketcomm.AdvancedComm;
 import com.auryan898.socketcomm.AdvancedCommReceiver;
 import com.auryan898.socketcomm.CommChannel;
@@ -57,6 +58,9 @@ public class AdvancedConnectionTester {
     comm2 = null;
   }
 
+  /**
+   * The connection should be able to connect and reconnect, without exception.
+   */
   @Test
   public void testConnection() {
     assertTrue("Server Waiting", comm2.waitForConnection(true));
@@ -81,6 +85,9 @@ public class AdvancedConnectionTester {
 
   }
 
+  /**
+   * Data sent should match data received.
+   */
   @Test
   public void testDataSend() {
     assertTrue("Sever Waiting", comm2.waitForConnection(true));
@@ -109,11 +116,31 @@ public class AdvancedConnectionTester {
     comm2 = null;
   }
 
+  /**
+   * A volume data may be sent, received, but not read entirely. Runtime error
+   * occurs, and the the stream continues reading the bytes.
+   */
+  @Test
+  public void testUnreadData() {
+
+  }
+
+  /**
+   * Exception may occur if more bytes are expected to be read but are not found.
+   */
+  @Test
+  void testInsufficientData() {
+
+  }
+
+  /**
+   * Test what happens when a comm with no reader receives data.
+   */
   @Test
   public void testNoReading() {
     assertTrue("Sever Waiting", comm2.waitForConnection(true));
     assertTrue("Client Connected", comm1.connect("127.0.0.1"));
-    comm2.send((byte)0, (byte)0, new byte[] { 1, 2, 3 });
+    comm2.send((byte) 0, (byte) 0, new byte[] { 1, 2, 3 });
     event1 = 1;
     event2 = 2;
     dataSent[0] = 5;

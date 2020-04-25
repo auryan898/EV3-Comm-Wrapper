@@ -2,7 +2,7 @@ package com.auryan898.socketcomm;
 
 import java.math.BigInteger;
 
-import com.auryan898.socketcomm.datastream.CommData;
+import com.auryan898.socketcomm.serialdata.CommData;
 
 public class BasicComm extends AdvancedComm {
 
